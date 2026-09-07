@@ -132,11 +132,19 @@ func postXRPC(service, method, token string, input, output any) error {
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		var apiError struct {
-			Error string `json:"error"`
+			Error   string `json:"error"`
+			Message string `json:"message"`
 		}
+
 		_ = json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&apiError)
-		// Omit server messages, which may echo submitted credentials or content.
-		return fmt.Errorf("%s: HTTP %d (%s)", method, resp.StatusCode, apiError.Error)
+
+		return fmt.Errorf(
+			"%s: HTTP %d (%s): %s",
+			method,
+			resp.StatusCode,
+			apiError.Error,
+			apiError.Message,
+		)
 	}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(output); err != nil {
 		return fmt.Errorf("decode %s response (verify account before retrying a post): %w", method, err)
