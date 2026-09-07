@@ -2,7 +2,7 @@ name: Poetry Bot
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "2,7,12,17,22,27,32,37,42,47,52,57 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -22,7 +22,7 @@ jobs:
         working-directory: dailybot
 
     steps:
-      - name: Repositor download
+      - name: Repository download
         uses: actions/checkout@v4
 
       - name: Go install
