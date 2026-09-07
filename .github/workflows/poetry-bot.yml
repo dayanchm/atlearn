@@ -1,0 +1,38 @@
+name: Poetry Bot
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: poetry-bot
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    defaults:
+      run:
+        working-directory: dailybot
+
+    steps:
+      - name: Repositor download
+        uses: actions/checkout@v4
+
+      - name: Go install
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: dailybot/go.mod
+          cache-dependency-path: dailybot/go.sum
+
+      - name: Poetry share
+        env:
+          BSKY_HANDLE: ${{ secrets.BSKY_HANDLE }}
+          BSKY_APP_PASSWORD: ${{ secrets.BSKY_APP_PASSWORD }}
+        run: go run . -once
