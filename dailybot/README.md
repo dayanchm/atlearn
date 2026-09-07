@@ -20,6 +20,8 @@ The bot serves `/api/daily` and publishes one complete short poem with its title
 
 Vercel runs the Go server using its `PORT` variable and the version in `go.mod`. See [Vercel's Go runtime documentation](https://vercel.com/docs/functions/runtimes/go).
 
+Do not add `functions.main.go` to `vercel.json`: it triggers an API-directory function pattern check and prevents deployment. This project uses the Go server preset and the project's default function duration. If needed, set the duration to at least 60 seconds in Vercel's project settings to allow for the two outbound API requests.
+
 The schedule is `0 5 * * *`: daily at 05:00 UTC, or 10:00 in Ashgabat. On Hobby, execution can occur anywhere between 10:00 and 10:59. Vercel sends `Authorization: Bearer <CRON_SECRET>` automatically. Scheduled jobs run on production deployments. See [Vercel cron documentation](https://vercel.com/docs/cron-jobs/manage-cron-jobs).
 
 ## Selection and repeated requests
