@@ -69,12 +69,12 @@ func poemPostText(poem Poetry) string {
 	return strings.TrimSpace(poem.Title) + "\n\n" + strings.Join(lines, "\n") + "\n\n— " + strings.TrimSpace(poem.Author)
 }
 
-// Use the same 20-minute slot for selection and duplicate prevention.
+// Use the same 60-minute slot for selection and duplicate prevention.
 func postingSlot(now time.Time) time.Time {
-	return now.UTC().Truncate(20 * time.Minute)
+	return now.UTC().Truncate(60 * time.Minute)
 }
 
-// A stable TID per 20-minute slot prevents duplicate records across cron invocations.
+// A stable TID per posting slot prevents duplicate records across cron invocations.
 // TIDs encode microseconds plus a 10-bit clock ID using sortable base32.
 func postingRecordKey(slot time.Time) string {
 	const alphabet = "234567abcdefghijklmnopqrstuvwxyz"
@@ -88,18 +88,27 @@ func postingRecordKey(slot time.Time) string {
 }
 
 func publishScheduledPoem(now time.Time) (*PostResponse, error) {
+	return publishPoemAtInterval(now, 60*time.Minute)
+}
+
+func publishPoemAtInterval(now time.Time, interval time.Duration) (*PostResponse, error) {
 	poems, err := scheduledPoems()
 	if err != nil {
 		return nil, err
 	}
-	slot := postingSlot(now)
-	// Stable selection for a given 20-minute slot and dataset, rotating through excerpts.
-	index := (slot.Unix() / (20 * 60)) % int64(len(poems))
+	return publishPoemSelection(now, interval, poems, poemPostText)
+}
+
+func publishPoemSelection(now time.Time, interval time.Duration, poems []Poetry, format func(Poetry) string) (*PostResponse, error) {
+	slot, poem, err := selectPoemByAuthor(now, interval, poems)
+	if err != nil {
+		return nil, err
+	}
 	session, err := CreateSession(os.Getenv("BSKY_HANDLE"), os.Getenv("BSKY_APP_PASSWORD"))
 	if err != nil {
 		return nil, err
 	}
-	return createPostWithKey(session, poemPostText(poems[index]), postingRecordKey(slot))
+	return createPostWithKey(session, format(poem), postingRecordKey(slot))
 }
 
 func dailyHandler(publish func(time.Time) (*PostResponse, error)) http.HandlerFunc {
@@ -128,4 +137,35 @@ func dailyHandler(publish func(time.Time) (*PostResponse, error)) http.HandlerFu
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(result)
 	}
+}
+
+// Selection and record keys share the interval so local minute posts advance together.
+func poemSlotAndIndex(now time.Time, interval time.Duration, count int) (time.Time, int) {
+	slot := now.UTC().Truncate(interval)
+	return slot, int((slot.UnixNano() / int64(interval)) % int64(count))
+}
+
+// Give each author one turn per cycle, regardless of their number of poems.
+// Stable ordering makes retries and restarts within a slot select the same poem.
+func selectPoemByAuthor(now time.Time, interval time.Duration, poems []Poetry) (time.Time, Poetry, error) {
+	if interval <= 0 || len(poems) == 0 {
+		return time.Time{}, Poetry{}, fmt.Errorf("a positive interval and eligible poems are required")
+	}
+	authors := make([]string, 0)
+	grouped := make(map[string][]Poetry)
+	for _, poem := range poems {
+		if _, exists := grouped[poem.Author]; !exists {
+			authors = append(authors, poem.Author)
+		}
+		grouped[poem.Author] = append(grouped[poem.Author], poem)
+	}
+	slot := now.UTC().Truncate(interval)
+	turn := slot.UnixNano() / int64(interval)
+	if turn < 0 {
+		return time.Time{}, Poetry{}, fmt.Errorf("posting time must not precede Unix epoch")
+	}
+	author := authors[turn%int64(len(authors))]
+	choices := grouped[author]
+	index := (turn / int64(len(authors))) % int64(len(choices))
+	return slot, choices[index], nil
 }

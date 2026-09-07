@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
 	"os"
@@ -15,8 +16,16 @@ type SessionRequest struct {
 }
 
 func main() {
-	// Vercel supplies environment variables directly; .env is only for local use.
+	local := flag.Bool("local", false, "publish locally every minute instead of starting the HTTP server")
+	flag.Parse()
+	// Load local settings without overriding existing environment variables.
 	_ = godotenv.Load()
+	if *local {
+		if err := runLocalBot(); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/daily", dailyHandler(publishScheduledPoem))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

@@ -1,7 +1,0 @@
-.env
-.env.*
-!.env.example
-.vercel
-*_test.go
-sql/**/*.txt
-sql/**/*.json
