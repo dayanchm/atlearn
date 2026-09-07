@@ -1,0 +1,54 @@
+- **What is AT Protocol ?**
+- AT Protocol (**Authenticated Transfer Protocol**), it is an open protocol developed for creating social applications.
+- For example,  compare this to the www
+-
+- **HTTP**
+- ________ Google
+- ________ Wikipedia
+- ________ Another applications
+-
+- **AT Protocol**
+- ________ Bluesky
+- ________ My application
+- ________ Another application
+-
+-
+- # **Why does AT Protocol exist?**
+- The **fundamental** problem here is this
+- Account + Followers + Posts + Identity + Moderation + Algorithm + Application = One platform
+-
+- **ATProto** is trying to break this down.
+- Identity  → DID
+- Data hosting  → PDS
+- Distribution  → Relay
+- Application → AppView
+- Algorithms  → Feed Generator
+- Moderation  → Labeler
+-
+- #
+- ## **AT PROTOCOL VS BLUESKY**
+- AT Protocol ≠ Blueksy
+- At protocol = Protokol
+- Bluesky = use to at protocol social media
+-
+- Bluesky in post, like, follow
+- app.bsky.feed.post
+- app.bsky.feed.like
+- app.bsky.graph.follow
+-
+- # AT Protocol
+	- ## Identity
+		- [[Handle]]
+		- [[DID]]
+	- ## Data
+		- [[Repository]]
+	- ## Hosting
+		- [[PDS]]
+	- ## Distribution
+		- [[Relay]]
+	- ## Application
+		- [[AppView]]
+	- ## Algorithms
+		- [[Feed Generator]]
+	- ## Moderation
+		- [[Labeler]]
