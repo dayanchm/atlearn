@@ -102,8 +102,8 @@ func createPostWithKey(session *Session, text, rkey string) (*PostResponse, erro
 	return &result, nil
 }
 
-// PostPoetry publishes the title, full poem and author as a single post.
-// Longer poems need an explicit excerpt or thread before calling this function.
+// PostPoetry publishes the title, first four nonempty lines and author.
+// Poems shorter than four lines use all available lines.
 func PostPoetry(session *Session, poem Poetry) (*PostResponse, error) {
 	if strings.TrimSpace(poem.Title) == "" || strings.TrimSpace(poem.Text) == "" || strings.TrimSpace(poem.Author) == "" {
 		return nil, fmt.Errorf("poem title, text and author are required")

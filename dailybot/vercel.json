@@ -2,6 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "go",
   "crons": [
-    { "path": "/api/daily", "schedule": "0 5 * * *" }
+    { "path": "/api/daily", "schedule": "*/20 * * * *" }
   ]
 }

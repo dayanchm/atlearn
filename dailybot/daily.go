@@ -19,7 +19,7 @@ import (
 var poetryFiles embed.FS
 
 // Cache parsed data in memory, but keep no local publication state.
-var dailyPoems = sync.OnceValues(func() ([]Poetry, error) {
+var scheduledPoems = sync.OnceValues(func() ([]Poetry, error) {
 	var poems []Poetry
 	err := fs.WalkDir(poetryFiles, "sql", func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
@@ -49,28 +49,36 @@ var dailyPoems = sync.OnceValues(func() ([]Poetry, error) {
 		return nil, err
 	}
 	if len(poems) == 0 {
-		return nil, fmt.Errorf("no complete poems fit in one post")
+		return nil, fmt.Errorf("no four-line excerpts fit in one post")
 	}
 	return poems, nil
 })
 
 func poemPostText(poem Poetry) string {
-	return poem.Title + "\n\n" + poem.Text + "\n\n— " + poem.Author
+	lines := make([]string, 0, 4)
+	for _, line := range strings.FieldsFunc(poem.Text, func(r rune) bool { return r == '\n' || r == '\r' || r == '\f' }) {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		lines = append(lines, line)
+		if len(lines) == 4 {
+			break
+		}
+	}
+	return strings.TrimSpace(poem.Title) + "\n\n" + strings.Join(lines, "\n") + "\n\n— " + strings.TrimSpace(poem.Author)
 }
 
-// A fixed UTC+5 zone avoids requiring an OS timezone database on Vercel.
-var ashgabat = time.FixedZone("Asia/Ashgabat", 5*60*60)
-
-func dailyDate(now time.Time) time.Time {
-	local := now.In(ashgabat)
-	return time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, ashgabat)
+// Use the same 20-minute slot for selection and duplicate prevention.
+func postingSlot(now time.Time) time.Time {
+	return now.UTC().Truncate(20 * time.Minute)
 }
 
-// A stable TID per local date prevents duplicate records across cron invocations.
+// A stable TID per 20-minute slot prevents duplicate records across cron invocations.
 // TIDs encode microseconds plus a 10-bit clock ID using sortable base32.
-func dailyRecordKey(day time.Time) string {
+func postingRecordKey(slot time.Time) string {
 	const alphabet = "234567abcdefghijklmnopqrstuvwxyz"
-	value := uint64(day.UnixMicro()) << 10
+	value := uint64(slot.UnixMicro()) << 10
 	var key [13]byte
 	for i := len(key) - 1; i >= 0; i-- {
 		key[i] = alphabet[value&31]
@@ -79,19 +87,19 @@ func dailyRecordKey(day time.Time) string {
 	return string(key[:])
 }
 
-func publishDailyPoem(now time.Time) (*PostResponse, error) {
-	poems, err := dailyPoems()
+func publishScheduledPoem(now time.Time) (*PostResponse, error) {
+	poems, err := scheduledPoems()
 	if err != nil {
 		return nil, err
 	}
-	day := dailyDate(now)
-	// Stable selection for a given date and dataset, rotating through short poems.
-	index := (day.Unix() / 86400) % int64(len(poems))
+	slot := postingSlot(now)
+	// Stable selection for a given 20-minute slot and dataset, rotating through excerpts.
+	index := (slot.Unix() / (20 * 60)) % int64(len(poems))
 	session, err := CreateSession(os.Getenv("BSKY_HANDLE"), os.Getenv("BSKY_APP_PASSWORD"))
 	if err != nil {
 		return nil, err
 	}
-	return createPostWithKey(session, poemPostText(poems[index]), dailyRecordKey(day))
+	return createPostWithKey(session, poemPostText(poems[index]), postingRecordKey(slot))
 }
 
 func dailyHandler(publish func(time.Time) (*PostResponse, error)) http.HandlerFunc {
@@ -113,8 +121,8 @@ func dailyHandler(publish func(time.Time) (*PostResponse, error)) http.HandlerFu
 		}
 		result, err := publish(time.Now())
 		if err != nil {
-			log.Printf("daily poem failed: %v", err)
-			http.Error(w, "daily post failed; check function logs before retrying", http.StatusBadGateway)
+			log.Printf("scheduled poem failed: %v", err)
+			http.Error(w, "scheduled post failed; check function logs before retrying", http.StatusBadGateway)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")

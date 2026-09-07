@@ -18,7 +18,7 @@ func main() {
 	// Vercel supplies environment variables directly; .env is only for local use.
 	_ = godotenv.Load()
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/daily", dailyHandler(publishDailyPoem))
+	mux.HandleFunc("/api/daily", dailyHandler(publishScheduledPoem))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
