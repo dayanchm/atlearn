@@ -4,4 +4,4 @@ This repository was created as a place to learn and explore AT Protocol. The lea
 
 
 ## Docs sources
-- [AT Protocol Documentation](docs/README.md)
+- [AT Protocol Documentation](docs/atprotocol.md)
